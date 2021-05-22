@@ -23,6 +23,11 @@
   // Ringing detection timeout in milliseconds
   #define RINGING_TIMEOUT 1000
 
+  // Indication LED pin
+  #define RINGING_INDICATOR_PIN D2
+  // Indication LED duration
+  #define RINGING_INDICATOR_TIMEOUT 10000
+
   // Door opening pin
   #define OPEN_PIN D4
   // Door opening button push duration in milliseconds
