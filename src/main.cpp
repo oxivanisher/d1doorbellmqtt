@@ -218,7 +218,7 @@ void setup() {
 
   // attach interrupt
   // attachInterrupt(digitalPinToInterrupt(RINGING_PIN), handleInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(RINGING_PIN), handleInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(RINGING_PIN), handleInterrupt, FALLING);
 }
 
 void loop() {
