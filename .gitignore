@@ -1,3 +1,10 @@
+# Dev environment
+.vscode
+.pio
+
+# Settings file
+src/config.h
+
 # Prerequisites
 *.d
 
