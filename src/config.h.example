@@ -1,0 +1,31 @@
+#ifndef __CONFIG_H
+  #define __CONFIG_H
+
+ /************************ Development settings ********************************/
+  //#define DEBUG
+  #define VERSION         "0.1"
+  #define SERIAL_BAUD     115200
+
+  /************************* WiFi Access Point *********************************/
+  #define WIFI_SSID       ""
+  #define WIFI_PASSWORD   ""
+  #define CONNECT_TIMEOUT 5
+
+  /***************************** MQTT Setup ***********************************/
+  #define MQTT_SERVER     ""
+  #define MQTT_SERVERPORT 1883
+  #define MQTT_USERNAME   ""
+  #define MQTT_PASSWORD   ""
+
+  /*************************** Features Setup *********************************/
+  // Ringing detection pin
+  #define RINGING_PIN D3
+  // Ringing detection timeout in milliseconds
+  #define RINGING_TIMEOUT 1000
+
+  // Door opening pin
+  #define OPEN_PIN D4
+  // Door opening button push duration in milliseconds
+  #define OPEN_DURATION 5000
+
+#endif
