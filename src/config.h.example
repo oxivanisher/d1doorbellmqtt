@@ -24,13 +24,13 @@
   #define RINGING_TIMEOUT 1000
 
   // Indication LED pin
-  #define RINGING_INDICATOR_PIN D2
+  #define RINGING_INDICATOR_PIN D1
   // Indication LED duration
-  #define RINGING_INDICATOR_TIMEOUT 10000
+  #define RINGING_INDICATOR_TIMEOUT 30000
 
   // Door opening pin
-  #define OPEN_PIN D4
+  #define OPEN_PIN D2
   // Door opening button push duration in milliseconds
-  #define OPEN_DURATION 5000
+  #define OPEN_DURATION 10000
 
 #endif
