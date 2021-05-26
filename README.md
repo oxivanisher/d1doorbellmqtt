@@ -4,11 +4,11 @@ Use a Wemos D1 mini with supporting electronics to inform you if somebody rang t
 ## Wiring the D1
 Per default (see the `config.h` file), the following pins are used:
 
-| Pin | Connected to      | Comment                                                        |
-|-----|-------------------|----------------------------------------------------------------|
-| D2  | Indicator LED     | After a detected ringing, keeps on for a given amount of time. |
-| D3  | Ringing Detection | Digital input when somebody is ringing (HIGH).                 |
-| D4  | Opening Button    | I.e. a relais which presses the opening button for you.        |
+| Pin | Connected to      | Comment                                                                        |
+|-----|-------------------|--------------------------------------------------------------------------------|
+| D1  | Ringing Detection | Digital input when somebody is ringing (default `HIGH` to `LOW` when ringing). |
+| D2  | Opening Button    | I.e. a relais which presses the opening button for you.                        |
+| D3  | Indicator LED     | After a detected ringing, keeps on for a given amount of time.                 |
 
 Remember the you also have to supply power to your D1 Mini.
 
@@ -27,6 +27,7 @@ message will be retained and cleared on start.
 
 ### Door Ring Event
 If a door ringing is detectet, it sends the payload `ringing` to `/d1doorbell/MAC address`.
+The pin is expected to be `HIGH` in normal state and `LOW` when ringing.
 
 ### Control
 It subscribes to two MQTT topics where it listens to the payload `open` to trigger the door opening:
