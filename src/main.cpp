@@ -93,8 +93,7 @@ bool mqttReconnect() {
       mqttClient.subscribe("/d1doorbell/all", 1);
 
       // subscript to the mac address (private) topic
-      char topic[29];
-      strcat(topic, "/d1doorbell/");
+      char topic[29] = "/d1doorbell/";
       strcat(topic, clientMac.c_str());
       mqttClient.subscribe(topic, 1);
 
