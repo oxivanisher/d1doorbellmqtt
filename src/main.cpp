@@ -34,6 +34,8 @@ unsigned long lastRingingStart = 0;
 unsigned long ringingIndicatorEnds = 0;
 unsigned long lastButtonpressStart = 0;
 unsigned long ringingPressStartTime = 0;
+unsigned long lastSuccessfulMqttConnection = 0;
+uint8_t mqttReconnectAttempts = 0;
 
 // void ICACHE_RAM_ATTR handleInterrupt();
 
@@ -96,6 +98,10 @@ bool mqttReconnect() {
       char topic[29] = "/d1doorbell/";
       strcat(topic, clientMac.c_str());
       mqttClient.subscribe(topic, 1);
+
+      // Reset reconnection tracking on success
+      lastSuccessfulMqttConnection = millis();
+      mqttReconnectAttempts = 0;
 
       return true;
     } else {
@@ -227,25 +233,44 @@ void loop() {
     DEBUG_PRINTLN("Calling wifiConnect() as it seems to be required");
     wifiConnect();
     DEBUG_PRINTLN("My MAC: " + String(WiFi.macAddress()));
+    // Reset MQTT state when WiFi reconnects
+    initialPublish = false;
   }
 
   if ((WiFi.status() == WL_CONNECTED) && (!mqttClient.connected())) {
     delay(500);
 
     DEBUG_PRINTLN("MQTT is not connected, let's try to reconnect");
+    mqttReconnectAttempts++;
+
+    // If MQTT fails to reconnect after 20 attempts, restart ESP
+    if (mqttReconnectAttempts > 20) {
+      DEBUG_PRINTLN("MQTT reconnection failed 20 times. Restarting ESP8266!");
+      ESP.restart();
+    }
+
     if (!mqttReconnect()) {
       // This should not happen, but seems to...
       DEBUG_PRINTLN("MQTT was unable to connect! Exiting the upload loop");
       delay(500);
       // force reconnect to mqtt
       initialPublish = false;
+
+      // If we've been unable to connect for 5 minutes, restart WiFi
+      if (lastSuccessfulMqttConnection > 0 && (millis() - lastSuccessfulMqttConnection > 300000)) {
+        DEBUG_PRINTLN("No MQTT connection for 5 minutes, forcing WiFi reconnect");
+        WiFi.disconnect();
+        delay(100);
+        wifiConnect();
+        mqttReconnectAttempts = 0;
+      }
     } else {
       // readyToUpload = true;
       DEBUG_PRINTLN("MQTT successfully reconnected");
     }
   }
 
-  if ((WiFi.status() == WL_CONNECTED) && (!initialPublish)) {
+  if ((WiFi.status() == WL_CONNECTED) && (mqttClient.connected()) && (!initialPublish)) {
     DEBUG_PRINT("MQTT discovery publish loop:");
 
     String clientMac = WiFi.macAddress();  // 17 chars
