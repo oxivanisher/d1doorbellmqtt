@@ -101,7 +101,8 @@ bool publishBatteryStatus() {
 
     // Check for low battery conditions
     if (voltage < CRITICAL_BATTERY_THRESHOLD) {
-      // MAC is 17 chars, "d1doorbell/battery/status/" is 26 chars = 43 + null = 44
+      // MAC is 17 chars, "d1doorbell/battery/status/" is 26 chars = 43 + null =
+      // 44
       char statusTopic[50] = "d1doorbell/battery/status/";
       strcat(statusTopic, clientMac.c_str());
       mqttClient.publish(statusTopic, "critical", true);
@@ -333,7 +334,8 @@ void loop() {
   }
 
   if ((WiFi.status() == WL_CONNECTED) && (!mqttClient.connected())) {
-    // Only attempt MQTT reconnection every 5 seconds to prevent rapid reconnect loops
+    // Only attempt MQTT reconnection every 5 seconds to prevent rapid reconnect
+    // loops
     unsigned long now = millis();
     if (now - lastMqttReconnectAttempt > 5000) {
       lastMqttReconnectAttempt = now;
@@ -437,7 +439,20 @@ void loop() {
 #ifdef ENABLE_BATTERY_MONITORING
   // Periodically report battery voltage
   if ((WiFi.status() == WL_CONNECTED) && (mqttClient.connected())) {
-    if (millis() - lastBatteryReport >= BATTERY_REPORT_INTERVAL) {
+    // Publish after 30 seconds on first boot, then at regular intervals
+    unsigned long timeSinceBoot = millis();
+    bool shouldPublish = false;
+
+    if (lastBatteryReport == 0 && timeSinceBoot >= 10000) {
+      // First publish: 30 seconds after boot
+      shouldPublish = true;
+    } else if (lastBatteryReport > 0 &&
+               (timeSinceBoot - lastBatteryReport >= BATTERY_REPORT_INTERVAL)) {
+      // Regular interval publish
+      shouldPublish = true;
+    }
+
+    if (shouldPublish) {
       if (publishBatteryStatus()) {
         lastBatteryReport = millis();
       }
