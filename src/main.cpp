@@ -33,6 +33,7 @@ bool initialPublish = false;
 unsigned long lastRingingStart = 0;
 unsigned long ringingIndicatorEnds = 0;
 unsigned long lastButtonpressStart = 0;
+unsigned long ringingPressStartTime = 0;
 
 // void ICACHE_RAM_ATTR handleInterrupt();
 
@@ -264,17 +265,32 @@ void loop() {
 
   // check if the door bell rang
   if (interruptRang) {
-    if (lastRingingStart + RINGING_TIMEOUT < millis()) {
-      DEBUG_PRINTLN("Doorbell ringing detected");
-      digitalWrite(RINGING_INDICATOR_PIN, HIGH);
-      ringingIndicatorEnds = millis() + RINGING_INDICATOR_TIMEOUT;
-      lastRingingStart = millis();
-      submitDoorBellRang();
-    } else {
-      DEBUG_PRINTLN("Doorbell ringing within ringing timeout detected");
+    // Start tracking the button press time
+    if (ringingPressStartTime == 0) {
+      ringingPressStartTime = millis();
+      DEBUG_PRINTLN("Doorbell press started, waiting for debounce...");
     }
-    interruptRang = false;
-    DEBUG_PRINTLN("lala");
+
+    // Check if pin is still LOW (button still pressed) after 50ms
+    if (digitalRead(RINGING_PIN) == LOW && (millis() - ringingPressStartTime >= 50)) {
+      // Valid press detected after debounce period
+      if (lastRingingStart + RINGING_TIMEOUT < millis()) {
+        DEBUG_PRINTLN("Doorbell ringing detected (debounced)");
+        digitalWrite(RINGING_INDICATOR_PIN, HIGH);
+        ringingIndicatorEnds = millis() + RINGING_INDICATOR_TIMEOUT;
+        lastRingingStart = millis();
+        submitDoorBellRang();
+      } else {
+        DEBUG_PRINTLN("Doorbell ringing within ringing timeout detected");
+      }
+      interruptRang = false;
+      ringingPressStartTime = 0;
+    } else if (digitalRead(RINGING_PIN) == HIGH) {
+      // Button released before debounce period - false trigger
+      DEBUG_PRINTLN("Doorbell press too short, ignoring (noise filtered)");
+      interruptRang = false;
+      ringingPressStartTime = 0;
+    }
   }
 
   if (lastButtonpressStart != 0) {
