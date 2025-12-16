@@ -37,6 +37,11 @@ unsigned long ringingPressStartTime = 0;
 unsigned long lastSuccessfulMqttConnection = 0;
 uint8_t mqttReconnectAttempts = 0;
 
+#ifdef ENABLE_BATTERY_MONITORING
+unsigned long lastBatteryReport = 0;
+bool lowBatteryWarningShown = false;
+#endif
+
 // void ICACHE_RAM_ATTR handleInterrupt();
 
 volatile bool interruptRang = 0;
@@ -44,6 +49,71 @@ volatile bool interruptRang = 0;
 void ICACHE_RAM_ATTR handleInterrupt() {
   interruptRang = true;
 }
+
+#ifdef ENABLE_BATTERY_MONITORING
+// Read battery voltage using ADC with voltage divider
+float readBatteryVoltage() {
+  // Read ADC value (0-1024 on ESP8266)
+  int rawValue = analogRead(A0);
+
+  // Convert to voltage at ADC pin (ESP8266 ADC: 0-1.0V range)
+  float adcVoltage = (rawValue / 1024.0);
+
+  // Calculate actual battery voltage using voltage divider formula
+  // Vbat = Vadc * (R1 + R2) / R2
+  float batteryVoltage = adcVoltage * (VOLTAGE_DIVIDER_R1 + VOLTAGE_DIVIDER_R2) / VOLTAGE_DIVIDER_R2;
+
+  return batteryVoltage;
+}
+
+// Publish battery voltage and status to MQTT
+bool publishBatteryStatus() {
+  if (!mqttClient.connected()) {
+    return false;
+  }
+
+  float voltage = readBatteryVoltage();
+
+  String clientMac = WiFi.macAddress();
+
+  // Publish voltage value
+  char voltageTopic[35] = "/d1doorbell/battery/";
+  strcat(voltageTopic, clientMac.c_str());
+
+  char voltageStr[10];
+  dtostrf(voltage, 4, 2, voltageStr);  // Convert float to string with 2 decimals
+
+  bool success = mqttClient.publish(voltageTopic, voltageStr, true);
+
+  if (success) {
+    DEBUG_PRINT("Battery voltage published: ");
+    DEBUG_PRINT(voltageStr);
+    DEBUG_PRINTLN("V");
+
+    // Check for low battery conditions
+    if (voltage < CRITICAL_BATTERY_THRESHOLD) {
+      char statusTopic[41] = "/d1doorbell/battery/status/";
+      strcat(statusTopic, clientMac.c_str());
+      mqttClient.publish(statusTopic, "critical", true);
+      DEBUG_PRINTLN("WARNING: Critical battery level!");
+    } else if (voltage < LOW_BATTERY_THRESHOLD && !lowBatteryWarningShown) {
+      char statusTopic[41] = "/d1doorbell/battery/status/";
+      strcat(statusTopic, clientMac.c_str());
+      mqttClient.publish(statusTopic, "low", true);
+      DEBUG_PRINTLN("WARNING: Low battery level!");
+      lowBatteryWarningShown = true;
+    } else if (voltage >= LOW_BATTERY_THRESHOLD + 0.2) {
+      // Reset warning flag when voltage recovers (with hysteresis)
+      lowBatteryWarningShown = false;
+      char statusTopic[41] = "/d1doorbell/battery/status/";
+      strcat(statusTopic, clientMac.c_str());
+      mqttClient.publish(statusTopic, "ok", true);
+    }
+  }
+
+  return success;
+}
+#endif
 
 bool submitDoorBellRang() {
   if (mqttClient.connected()) {
@@ -331,6 +401,17 @@ void loop() {
       digitalWrite(RINGING_INDICATOR_PIN, LOW);
     }
   }
+
+#ifdef ENABLE_BATTERY_MONITORING
+  // Periodically report battery voltage
+  if ((WiFi.status() == WL_CONNECTED) && (mqttClient.connected())) {
+    if (millis() - lastBatteryReport >= BATTERY_REPORT_INTERVAL) {
+      if (publishBatteryStatus()) {
+        lastBatteryReport = millis();
+      }
+    }
+  }
+#endif
 
   // calm down, boy
   delay(10);

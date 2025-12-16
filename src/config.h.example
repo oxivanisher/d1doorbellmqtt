@@ -33,4 +33,23 @@
   // Door opening button push duration in milliseconds
   #define OPEN_DURATION 10000
 
+  /************************** Battery Monitoring ********************************/
+  // Enable battery voltage monitoring (comment out to disable)
+  #define ENABLE_BATTERY_MONITORING
+
+  // Battery voltage reporting interval in milliseconds (default: 5 minutes)
+  #define BATTERY_REPORT_INTERVAL 300000
+
+  // Low battery warning threshold in volts (18650 safe minimum ~3.2V)
+  #define LOW_BATTERY_THRESHOLD 3.3
+
+  // Critical battery threshold in volts (emergency shutdown recommended)
+  #define CRITICAL_BATTERY_THRESHOLD 3.1
+
+  // Voltage divider resistor values (R1 = high side, R2 = low side to GND)
+  // For 18650 (4.2V max) to ESP8266 ADC (1.0V max): use R1=100k, R2=33k
+  // Adjust these values based on your actual resistors
+  #define VOLTAGE_DIVIDER_R1 100000.0  // 100kΩ
+  #define VOLTAGE_DIVIDER_R2 33000.0   // 33kΩ
+
 #endif
