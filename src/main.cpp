@@ -42,6 +42,8 @@ unsigned long lastBatteryReport = 0;
 bool lowBatteryWarningShown = false;
 #endif
 
+unsigned long lastMqttReconnectAttempt = 0;
+
 // void ICACHE_RAM_ATTR handleInterrupt();
 
 volatile bool interruptRang = 0;
@@ -53,15 +55,20 @@ void ICACHE_RAM_ATTR handleInterrupt() {
 #ifdef ENABLE_BATTERY_MONITORING
 // Read battery voltage using ADC with voltage divider
 float readBatteryVoltage() {
-  // Read ADC value (0-1024 on ESP8266)
+  // Read ADC value (0-1023 on ESP8266)
   int rawValue = analogRead(A0);
 
-  // Convert to voltage at ADC pin (ESP8266 ADC: 0-1.0V range)
-  float adcVoltage = (rawValue / 1024.0);
+  // ESP8266 ADC: 10-bit (0-1023), measures 0-1.0V
+  // But D1 Mini has internal voltage divider making the actual range 0-3.3V
+  // The internal divider is typically 220k + 100k (3.2:1 ratio)
+  // So ADC reads 0-1023 for 0-3.3V input
+  float adcVoltage = (rawValue / 1023.0) * 3.3;
 
-  // Calculate actual battery voltage using voltage divider formula
+  // Calculate actual battery voltage using external voltage divider formula
   // Vbat = Vadc * (R1 + R2) / R2
-  float batteryVoltage = adcVoltage * (VOLTAGE_DIVIDER_R1 + VOLTAGE_DIVIDER_R2) / VOLTAGE_DIVIDER_R2;
+  float batteryVoltage = adcVoltage *
+                         (VOLTAGE_DIVIDER_R1 + VOLTAGE_DIVIDER_R2) /
+                         VOLTAGE_DIVIDER_R2;
 
   return batteryVoltage;
 }
@@ -77,11 +84,13 @@ bool publishBatteryStatus() {
   String clientMac = WiFi.macAddress();
 
   // Publish voltage value
-  char voltageTopic[35] = "/d1doorbell/battery/";
+  // MAC is 17 chars, "d1doorbell/battery/" is 19 chars = 36 + null = 37
+  char voltageTopic[40] = "d1doorbell/battery/";
   strcat(voltageTopic, clientMac.c_str());
 
   char voltageStr[10];
-  dtostrf(voltage, 4, 2, voltageStr);  // Convert float to string with 2 decimals
+  dtostrf(voltage, 4, 2,
+          voltageStr);  // Convert float to string with 2 decimals
 
   bool success = mqttClient.publish(voltageTopic, voltageStr, true);
 
@@ -92,12 +101,13 @@ bool publishBatteryStatus() {
 
     // Check for low battery conditions
     if (voltage < CRITICAL_BATTERY_THRESHOLD) {
-      char statusTopic[41] = "/d1doorbell/battery/status/";
+      // MAC is 17 chars, "d1doorbell/battery/status/" is 26 chars = 43 + null = 44
+      char statusTopic[50] = "d1doorbell/battery/status/";
       strcat(statusTopic, clientMac.c_str());
       mqttClient.publish(statusTopic, "critical", true);
       DEBUG_PRINTLN("WARNING: Critical battery level!");
     } else if (voltage < LOW_BATTERY_THRESHOLD && !lowBatteryWarningShown) {
-      char statusTopic[41] = "/d1doorbell/battery/status/";
+      char statusTopic[50] = "d1doorbell/battery/status/";
       strcat(statusTopic, clientMac.c_str());
       mqttClient.publish(statusTopic, "low", true);
       DEBUG_PRINTLN("WARNING: Low battery level!");
@@ -105,7 +115,7 @@ bool publishBatteryStatus() {
     } else if (voltage >= LOW_BATTERY_THRESHOLD + 0.2) {
       // Reset warning flag when voltage recovers (with hysteresis)
       lowBatteryWarningShown = false;
-      char statusTopic[41] = "/d1doorbell/battery/status/";
+      char statusTopic[50] = "d1doorbell/battery/status/";
       strcat(statusTopic, clientMac.c_str());
       mqttClient.publish(statusTopic, "ok", true);
     }
@@ -118,7 +128,7 @@ bool publishBatteryStatus() {
 bool submitDoorBellRang() {
   if (mqttClient.connected()) {
     String clientMac = WiFi.macAddress();
-    char doorBellTopic[29] = "/d1doorbell/";
+    char doorBellTopic[29] = "d1doorbell/";
     strcat(doorBellTopic, clientMac.c_str());
 
     bool worked = mqttClient.publish(doorBellTopic, "ringing", false);
@@ -153,19 +163,20 @@ bool mqttReconnect() {
 
     // Attempt to connect
     String clientMac = WiFi.macAddress();
-    char lastWillTopic[38] = "/d1doorbell/lastwill/";
+    char lastWillTopic[38] = "d1doorbell/lastwill/";
     strcat(lastWillTopic, clientMac.c_str());
-    if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD, lastWillTopic, 1, 1, clientMac.c_str())) {
+    if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD,
+                           lastWillTopic, 1, 1, clientMac.c_str())) {
       DEBUG_PRINTLN("connected");
 
       // clearing last will message
       mqttClient.publish(lastWillTopic, "", true);
 
       // subscribe to "all" topic
-      mqttClient.subscribe("/d1doorbell/all", 1);
+      mqttClient.subscribe("d1doorbell/all", 1);
 
       // subscript to the mac address (private) topic
-      char topic[29] = "/d1doorbell/";
+      char topic[29] = "d1doorbell/";
       strcat(topic, clientMac.c_str());
       mqttClient.subscribe(topic, 1);
 
@@ -200,7 +211,8 @@ bool wifiConnect() {
   WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
   DEBUG_PRINTLN("WiFi Light Sleep enabled for power saving");
 #else
-  // Original working code: No sleep mode (higher power consumption but most reliable)
+  // Original working code: No sleep mode (higher power consumption but most
+  // reliable)
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
   DEBUG_PRINTLN("WiFi sleep disabled (original mode)");
 #endif
@@ -291,6 +303,7 @@ void setup() {
   // Start the Pub/Sub client
   mqttClient.setServer(MQTT_SERVER, MQTT_SERVERPORT);
   mqttClient.setCallback(mqttCallback);
+  mqttClient.setKeepAlive(60);  // Set MQTT keepalive to 60 seconds
 
   // initial delay to let millis not be 0
   delay(1);
@@ -304,7 +317,8 @@ void setup() {
   pinMode(RINGING_PIN, INPUT);
 
   // attach interrupt
-  // attachInterrupt(digitalPinToInterrupt(RINGING_PIN), handleInterrupt, RISING);
+  // attachInterrupt(digitalPinToInterrupt(RINGING_PIN), handleInterrupt,
+  // RISING);
   attachInterrupt(digitalPinToInterrupt(RINGING_PIN), handleInterrupt, FALLING);
 }
 
@@ -319,43 +333,49 @@ void loop() {
   }
 
   if ((WiFi.status() == WL_CONNECTED) && (!mqttClient.connected())) {
-    delay(500);
+    // Only attempt MQTT reconnection every 5 seconds to prevent rapid reconnect loops
+    unsigned long now = millis();
+    if (now - lastMqttReconnectAttempt > 5000) {
+      lastMqttReconnectAttempt = now;
 
-    DEBUG_PRINTLN("MQTT is not connected, let's try to reconnect");
-    mqttReconnectAttempts++;
+      DEBUG_PRINTLN("MQTT is not connected, let's try to reconnect");
+      mqttReconnectAttempts++;
 
-    // If MQTT fails to reconnect after 20 attempts, restart ESP
-    if (mqttReconnectAttempts > 20) {
-      DEBUG_PRINTLN("MQTT reconnection failed 20 times. Restarting ESP8266!");
-      ESP.restart();
-    }
-
-    if (!mqttReconnect()) {
-      // This should not happen, but seems to...
-      DEBUG_PRINTLN("MQTT was unable to connect! Exiting the upload loop");
-      delay(500);
-      // force reconnect to mqtt
-      initialPublish = false;
-
-      // If we've been unable to connect for 5 minutes, restart WiFi
-      if (lastSuccessfulMqttConnection > 0 && (millis() - lastSuccessfulMqttConnection > 300000)) {
-        DEBUG_PRINTLN("No MQTT connection for 5 minutes, forcing WiFi reconnect");
-        WiFi.disconnect();
-        delay(100);
-        wifiConnect();
-        mqttReconnectAttempts = 0;
+      // If MQTT fails to reconnect after 20 attempts, restart ESP
+      if (mqttReconnectAttempts > 20) {
+        DEBUG_PRINTLN("MQTT reconnection failed 20 times. Restarting ESP8266!");
+        ESP.restart();
       }
-    } else {
-      // readyToUpload = true;
-      DEBUG_PRINTLN("MQTT successfully reconnected");
+
+      if (!mqttReconnect()) {
+        // This should not happen, but seems to...
+        DEBUG_PRINTLN("MQTT was unable to connect! Exiting the upload loop");
+        // force reconnect to mqtt
+        initialPublish = false;
+
+        // If we've been unable to connect for 5 minutes, restart WiFi
+        if (lastSuccessfulMqttConnection > 0 &&
+            (millis() - lastSuccessfulMqttConnection > 300000)) {
+          DEBUG_PRINTLN(
+              "No MQTT connection for 5 minutes, forcing WiFi reconnect");
+          WiFi.disconnect();
+          delay(100);
+          wifiConnect();
+          mqttReconnectAttempts = 0;
+        }
+      } else {
+        // readyToUpload = true;
+        DEBUG_PRINTLN("MQTT successfully reconnected");
+      }
     }
   }
 
-  if ((WiFi.status() == WL_CONNECTED) && (mqttClient.connected()) && (!initialPublish)) {
+  if ((WiFi.status() == WL_CONNECTED) && (mqttClient.connected()) &&
+      (!initialPublish)) {
     DEBUG_PRINT("MQTT discovery publish loop:");
 
     String clientMac = WiFi.macAddress();  // 17 chars
-    char topic[39] = "/d1doorbell/discovery/";
+    char topic[39] = "d1doorbell/discovery/";
     strcat(topic, clientMac.c_str());
 
     if (mqttClient.publish(topic, VERSION, true)) {
@@ -376,8 +396,9 @@ void loop() {
       DEBUG_PRINTLN("Doorbell press started, waiting for debounce...");
     }
 
-    // Check if pin is still LOW (button still pressed) after 50ms
-    if (digitalRead(RINGING_PIN) == LOW && (millis() - ringingPressStartTime >= 50)) {
+    // Check if pin is still LOW (button still pressed) after debounce time
+    if (digitalRead(RINGING_PIN) == LOW &&
+        (millis() - ringingPressStartTime >= RINGING_DEBOUNCE_TIME)) {
       // Valid press detected after debounce period
       if (lastRingingStart + RINGING_TIMEOUT < millis()) {
         DEBUG_PRINTLN("Doorbell ringing detected (debounced)");

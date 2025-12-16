@@ -1,6 +1,7 @@
 # Dev environment
 .vscode
 .pio
+.claude
 
 # Settings file
 src/config.h
@@ -37,3 +38,6 @@ src/config.h
 *.exe
 *.out
 *.app
+
+# Backups
+backup.img

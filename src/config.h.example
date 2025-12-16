@@ -22,6 +22,9 @@
   #define RINGING_PIN D3
   // Ringing detection timeout in milliseconds
   #define RINGING_TIMEOUT 1000
+  // Ringing debounce time in milliseconds (filters electrical noise)
+  // Button must be pressed for at least this duration to be considered valid
+  #define RINGING_DEBOUNCE_TIME 100
 
   // Indication LED pin
   #define RINGING_INDICATOR_PIN D1

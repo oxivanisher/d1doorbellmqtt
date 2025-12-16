@@ -37,30 +37,30 @@ Toggle via `ENABLE_WIFI_LIGHT_SLEEP` in `config.h`. If you experience WiFi stabi
 ## MQTT interface
 
 ### Discovery
-It publishes its MAC address regularly to `/d1doorbell/discovery/MAC` with the
+It publishes its MAC address regularly to `d1doorbell/discovery/MAC` with the
 current version as value.
 
 ### Last will
-It sets its last will to `/d1doorbell/lastwill/MAC` with the MAC as message. This
+It sets its last will to `d1doorbell/lastwill/MAC` with the MAC as message. This
 message will be retained and cleared on start.
 
 ### Door Ring Event
-If a door ringing is detectet, it sends the payload `ringing` to `/d1doorbell/MAC address`.
+If a door ringing is detectet, it sends the payload `ringing` to `d1doorbell/MAC address`.
 The pin is expected to be `HIGH` in normal state and `LOW` when ringing.
 
 ### Control
 It subscribes to two MQTT topics where it listens to the payload `open` to trigger the door opening:
-* `/d1doorbell/all`
-* `/d1doorbell/MAC address`
+* `d1doorbell/all`
+* `d1doorbell/MAC address`
 
 ### Battery Monitoring (Optional)
 If battery monitoring is enabled in `config.h`:
 
 #### Battery Voltage
-Published regularly (default: every 5 minutes) to `/d1doorbell/battery/MAC` with the current battery voltage in volts (e.g., "3.85").
+Published regularly (default: every 5 minutes) to `d1doorbell/battery/MAC` with the current battery voltage in volts (e.g., "3.85").
 
 #### Battery Status
-Published to `/d1doorbell/battery/status/MAC` with one of these values:
+Published to `d1doorbell/battery/status/MAC` with one of these values:
 * `ok` - Battery voltage is healthy
 * `low` - Battery voltage below LOW_BATTERY_THRESHOLD (default: 3.3V)
 * `critical` - Battery voltage below CRITICAL_BATTERY_THRESHOLD (default: 3.1V)
