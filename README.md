@@ -27,6 +27,13 @@ This brings the 18650 voltage (3.0-4.2V) down to the ESP8266 ADC safe range (0-1
 ## Configuration
 See the `config.h.example` file which has to be copied to `config.h` to be used.
 
+### Power Management
+The system supports WiFi light sleep mode to reduce power consumption while maintaining connectivity:
+- **Light Sleep Enabled** (default): WiFi radio sleeps between beacon intervals, reducing power by ~50-70mA
+- **Light Sleep Disabled**: Original mode with no sleep (higher power but maximum reliability)
+
+Toggle via `ENABLE_WIFI_LIGHT_SLEEP` in `config.h`. If you experience WiFi stability issues, comment it out to disable light sleep.
+
 ## MQTT interface
 
 ### Discovery

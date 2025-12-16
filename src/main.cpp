@@ -193,7 +193,18 @@ bool wifiConnect() {
 
   wifiConnectionRetries += 1;
   int retryCounter = CONNECT_TIMEOUT * 1000;
+
+  // Power management: Enable light sleep to reduce power consumption
+  // Light sleep maintains WiFi connection while sleeping between beacons
+#ifdef ENABLE_WIFI_LIGHT_SLEEP
+  WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
+  DEBUG_PRINTLN("WiFi Light Sleep enabled for power saving");
+#else
+  // Original working code: No sleep mode (higher power consumption but most reliable)
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  DEBUG_PRINTLN("WiFi sleep disabled (original mode)");
+#endif
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   WiFi.mode(WIFI_STA);  //  Force the ESP into client-only mode
   delay(1);

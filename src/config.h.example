@@ -52,4 +52,11 @@
   #define VOLTAGE_DIVIDER_R1 100000.0  // 100kΩ
   #define VOLTAGE_DIVIDER_R2 33000.0   // 33kΩ
 
+  /************************ Power Management ************************************/
+  // Enable WiFi light sleep mode to reduce power consumption
+  // Light sleep allows WiFi to sleep between DTIM beacons while maintaining connection
+  // Reduces power by ~50-70mA but may slightly increase latency
+  // If you experience WiFi stability issues, comment this out to disable
+  #define ENABLE_WIFI_LIGHT_SLEEP
+
 #endif
